@@ -8,18 +8,44 @@ else
 fi
 
 # Do not change code above this line. Use the PSQL variable above to query your database.
-cut -d',' -f3 games.csv | tail +2 | sort | uniq > winners.csv
-cut -d',' -f4 games.csv | tail +2 | sort | uniq > opponents.csv
-awk '{if(!seen[$0]++)print $0}' winners.csv opponents.csv > teams.csv
+echo  $($PSQL "truncate table games. teams;")
 
-while IFS="," read -r rec_column1
+cat games.csv | while IFS=',' read YEAR ROUND WINNER OPPONENT WINNER_GOALS OPPONENT_GOALS
 do
-  $($PSQL "insert into teams (name) values('$rec_column1');")
-done < teams.csv
+TEAMS=$($PSQL "select name from teams where name=$WINNER;")
+if [[ $WINNER != "winner" ]]
+  then
+  if [[ -z $TEAMS ]]
+    then
+    INSERT_TEAM=$($PSQL "insert into teams(name) VALUES('$WINNER');")
+    if [[ INSERT_TEAM == "INSERT 0 1" ]]
+    then
+    echo Inserted into teams, $WINNER
+    fi
+  fi
+fi
 
-while IFS="," read -r rec_column1 rec_column2 rec_column3 rec_column4 rec_column5 rec_column6
-do
-  WINNER_ID=$($PSQL "select team_id from teams where name='$rec_column3';")
-  OPPONENT_ID=$($PSQL "select team_id from teams where name='$rec_column4';")
-  $($PSQL "insert into games (year, round, winner_id, opponent_id, winner_goals, opponent_goals) values('$rec_column1','$rec_column2', '$WINNER_ID','$OPPONENT_ID','$rec_column5','$rec_column6');")
-done < <(tail -n +2 games.csv)
+TEAMS2=$($PSQL "select name from teams where name=$OPPONENT;")
+if [[ $OPPONENT != "opponent" ]]
+  then
+  if [[ -z $TEAMS2 ]]
+    then
+    INSERT_TEAM2=$($PSQL "insert into teams(name) VALUES('$OPPONENT');")
+    if [[ INSERT_TEAM2 == "INSERT 0 1" ]]
+    then
+    echo Inserted into teams, $OPPONENT
+    fi
+  fi
+fi
+
+WINNER_ID=$($PSQL "select team_id from teams where name='$WINNER';")
+OPPONENT_ID=$($PSQL "select team_id from teams where name='$OPPONENT';")
+if [[ $YEAR != "year" ]]
+then
+INSERT_GAME=$($PSQL "insert into games (year, round, winner_id, opponent_id, winner_goals, opponent_goals) values('$YEAR','$ROUND', '$WINNER_ID','$OPPONENT_ID','$WINNER_GOALS','$OPPONENT_GOALS');")
+    if [[ INSERT_GAME == "INSERT 0 1" ]]
+    then
+    echo Inserted into games, $YEAR
+    fi
+fi
+done 
